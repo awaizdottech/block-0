@@ -4,7 +4,7 @@ import App from "./App.jsx";
 import "./index.css";
 import { Provider } from "react-redux";
 import { store } from "./store/store.js";
-import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
 import { AuthLayout } from "./components";
 import { Error404, Home, LandingPage, Login, Profile, Signup } from "./pages";
 
@@ -21,7 +21,9 @@ const router = createBrowserRouter([
       {
         path: "u",
         element: (
-          <AuthLayout authRequired>{/* Child routes/components */}</AuthLayout>
+          <AuthLayout authRequired>
+            <Outlet />
+          </AuthLayout>
         ),
         children: [
           {
