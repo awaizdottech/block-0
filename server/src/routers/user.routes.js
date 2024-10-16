@@ -1,10 +1,10 @@
 import { Router } from "express";
 import {
-  getCurrentUser,
   loginUser,
   updateTokens,
   signupUser,
   logoutUser,
+  verifyEmail,
 } from "../controllers/user.controllers.js";
 import { upload } from "../middlewares/multer.middlewares.js";
 import { verifyJWT } from "../middlewares/auth.middlewares.js";
@@ -14,11 +14,12 @@ export const userRouter = Router();
 
 userRouter.route("/signup").post(upload.single("avatar"), signupUser);
 userRouter.route("/login").post(loginUser);
-userRouter.route("/update-tokens").patch(updateTokens);
+userRouter.route("/update-tokens").get(updateTokens);
 
 userRouter.use(verifyJWT);
-userRouter.route("/profile").get(getCurrentUser);
 userRouter.route("/logout").post(logoutUser);
+userRouter.route("/verify-email").post(verifyEmail);
+userRouter.route("/account-details").patch(upload.single("avatar")).delete();
 
 userRouter.use((req, res, next) => {
   return res

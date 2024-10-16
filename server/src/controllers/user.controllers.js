@@ -1,13 +1,18 @@
 import {
   asyncHandler,
   generateTokensAndSaveRefreshTokenToDb,
+  sendMail,
 } from "../utils/helpers.js";
 import { User } from "../models/user.model.js";
 import { deleteFromCloud, uploadOnCloud } from "../utils/cloud.js";
 import { ApiResponse, ApiError } from "../utils/standards.js";
 import jwt from "jsonwebtoken";
 import fs from "fs";
-import { loginSchema, signupSchema } from "../schemas/user.schema.js";
+import {
+  loginSchema,
+  signupSchema,
+  updateSchema,
+} from "../schemas/user.schema.js";
 
 const options = {
   httpsOnly: true,
@@ -33,13 +38,23 @@ export const signupUser = asyncHandler(async (req, res) => {
     return res.status(400).json(new ApiError(400, "avatar file is missing"));
   }
 
-  const ExistingUser = await User.findOne({ $or: [{ username }, { email }] });
-
-  if (ExistingUser) {
-    fs.unlinkSync(avatarLocalPath);
+  try {
+    const ExistingUser = await User.findOne({ $or: [{ username }, { email }] });
+    if (ExistingUser) {
+      fs.unlinkSync(avatarLocalPath);
+      return res
+        .status(400)
+        .json(new ApiError(409, "User with email or username already exists"));
+    }
+  } catch (error) {
     return res
       .status(400)
-      .json(new ApiError(409, "User with email or username already exists"));
+      .json(
+        new ApiError(
+          500,
+          "something went wrong while checking for existing user with same credentials"
+        )
+      );
   }
 
   let avatar;
@@ -85,40 +100,61 @@ export const signupUser = asyncHandler(async (req, res) => {
   }
 });
 
-export const loginUser = asyncHandler(async (req, res) => {
-  const validatedData = loginSchema.safeParse(req.body);
-  if (!validatedData.success)
+export const verifyEmail = asyncHandler(async (req, res) => {
+  try {
+    const response = await sendMail();
+    return res
+      .status(200)
+      .json(new ApiResponse(200, response, "email sent successfully"));
+  } catch (error) {
+    if (error instanceof ApiError) return res.status(400).json(error);
     return res
       .status(400)
+      .json(new ApiError(500, "something went wrong while verifying email"));
+  }
+});
+
+export const loginUser = asyncHandler(async (req, res) => {
+  try {
+    const validatedData = loginSchema.safeParse(req.body);
+    if (!validatedData.success)
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            400,
+            "seems like validation error",
+            validatedData.error.issues
+          )
+        );
+    const { email, password } = validatedData.data;
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json(new ApiError(400, "user not found"));
+
+    const isPasswordValid = await user.isPasswordCorrect(password);
+    if (!isPasswordValid)
+      return res.status(400).json(new ApiError(401, "invalid password"));
+
+    const { accessToken, refreshToken } =
+      await generateTokensAndSaveRefreshTokenToDb(user._id);
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options) // cookies cant be set in mobile apps
+      .cookie("refreshToken", refreshToken, options)
       .json(
-        new ApiError(
-          400,
-          "seems like validation error",
-          validatedData.error.issues
+        new ApiResponse(
+          200,
+          { user, accessToken, refreshToken },
+          "user logged in successfully"
         )
       );
-  const { email, password } = validatedData.data;
-
-  const user = await User.findOne({ email });
-  if (!user) return res.status(400).json(new ApiError(400, "user not found"));
-
-  const isPasswordValid = await user.isPasswordCorrect(password);
-  if (!isPasswordValid)
-    return res.status(400).json(new ApiError(401, "invalid password"));
-
-  const { accessToken, refreshToken } =
-    await generateTokensAndSaveRefreshTokenToDb(user._id);
-  return res
-    .status(200)
-    .cookie("accessToken", accessToken, options) // cookies cant be set in mobile apps
-    .cookie("refreshToken", refreshToken, options)
-    .json(
-      new ApiResponse(
-        200,
-        { user, accessToken, refreshToken },
-        "user logged in successfully"
-      )
-    );
+  } catch (error) {
+    if (error instanceof ApiError) return res.status(400).json(error);
+    return res
+      .status(400)
+      .json(new ApiError(500, "something went wrong while logging in user"));
+  }
 });
 
 export const updateTokens = asyncHandler(async (req, res) => {
@@ -196,6 +232,43 @@ export const logoutUser = asyncHandler(async (req, res) => {
   }
 });
 
+export const updateAccountDetails = asyncHandler(async (req, res) => {
+  const validatedData = updateSchema.safeParse(req.body);
+  if (!validatedData.success)
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          400,
+          "seems like validation error",
+          validatedData.error.issues
+        )
+      );
+  const { oldPassword, newPassword, oldEmail, newEmail } = validatedData.data;
+
+  const avatarLocalPath = req.file?.path;
+  if (avatarLocalPath) {
+    try {
+      avatar = await uploadOnCloud(
+        avatarLocalPath,
+        `${req.user.username}_avatar.jpg`
+      );
+    } catch (error) {
+      return res.status(400).json(new ApiError(400, "failed to update avatar"));
+    }
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    { $set: { fullname, email } },
+    { new: true }
+  ).select("-password -refreshToken");
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "account details updated successfully"));
+});
+
 export const updateCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   const user = await User.findById(req.user?._id);
@@ -210,30 +283,6 @@ export const updateCurrentPassword = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "password changed successfully"));
-});
-
-export const getCurrentUser = asyncHandler(async (req, res) => {
-  return res
-    .status(200)
-    .json(new ApiResponse(200, req.user, "current user details"));
-});
-
-export const updateAccountDetails = asyncHandler(async (req, res) => {
-  const { fullname, email } = req.body;
-  if (!fullname || !email)
-    return res
-      .status(400)
-      .json(new ApiError(400, "fullname & email are required"));
-
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    { $set: { fullname, email } },
-    { new: true }
-  ).select("-password -refreshToken");
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "account details updated successfully"));
 });
 
 export const updateUserAvatar = asyncHandler(async (req, res) => {

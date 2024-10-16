@@ -1,5 +1,6 @@
 import { ApiError } from "./standards.js";
 import { User } from "../models/user.model.js";
+import nodemailer from "nodemailer";
 
 export const asyncHandler = (requestHandler) => {
   return (req, res, next) => {
@@ -25,3 +26,30 @@ export const generateTokensAndSaveRefreshTokenToDb = async (userId) => {
     );
   }
 };
+
+export async function sendMail() {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.GMAIL,
+        pass: process.env.GMAIL_APP_PASSWORD,
+      },
+    });
+
+    return transporter.sendMail({
+      from: {
+        name: "awaizdottech",
+        address: process.env.GMAIL,
+      },
+      to: ["awaiz29249@gmail.com"], // list of receivers
+      subject: "Hello ✔", // Subject line
+      text: "Hello world?", // plain text body
+      html: "<b>Hello world?</b>", // html body
+    });
+  } catch (error) {
+    throw new ApiError(400, "couldnt send mail");
+  }
+}
