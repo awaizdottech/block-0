@@ -4,5 +4,6 @@ import Profile from "./Profile";
 import LandingPage from "./LandingPage";
 import Login from "./Login";
 import Signup from "./Signup";
+import EmailResponse from "./EmailResponse";
 
-export { Error404, Home, Profile, LandingPage, Login, Signup };
+export { Error404, Home, Profile, LandingPage, Login, Signup, EmailResponse };

@@ -1,7 +1,7 @@
 import {
   asyncHandler,
   generateTokensAndSaveRefreshTokenToDb,
-  sendMail,
+  mailSender,
 } from "../utils/helpers.js";
 import { User } from "../models/user.model.js";
 import { deleteFromCloud, uploadOnCloud } from "../utils/cloud.js";
@@ -9,10 +9,12 @@ import { ApiResponse, ApiError } from "../utils/standards.js";
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import {
+  emailSchema,
   loginSchema,
   signupSchema,
   updateSchema,
 } from "../schemas/user.schema.js";
+import { emailTypes } from "../constants.js";
 
 const options = {
   httpsOnly: true,
@@ -100,9 +102,30 @@ export const signupUser = asyncHandler(async (req, res) => {
   }
 });
 
-export const verifyEmail = asyncHandler(async (req, res) => {
+export const sendEmail = asyncHandler(async (req, res) => {
+  const validatedEmail = emailSchema.safeParse(req.body);
+  if (!validatedEmail.success)
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          400,
+          "seems like validation error",
+          validatedEmail.error.issues
+        )
+      );
+  const { email } = validatedEmail.data;
+
+  jwt.sign({ email }, process.env.EMAIL_TOKEN_SECRET, {
+    expiresIn: process.env.EMAIL_TOKEN_EXPIRY,
+  });
+
   try {
-    const response = await sendMail();
+    const response = await mailSender({
+      emailType: emailTypes.emailVerification,
+      token: "nice",
+      recieverEmail: "awaiz29249@gmail.com",
+    });
     return res
       .status(200)
       .json(new ApiResponse(200, response, "email sent successfully"));
@@ -110,7 +133,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     if (error instanceof ApiError) return res.status(400).json(error);
     return res
       .status(400)
-      .json(new ApiError(500, "something went wrong while verifying email"));
+      .json(new ApiError(500, "something went wrong while sending email"));
   }
 });
 

@@ -5,8 +5,16 @@ import "./index.css";
 import { Provider } from "react-redux";
 import { store } from "./store/store.js";
 import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
-import { AuthLayout } from "./components";
-import { Error404, Home, LandingPage, Login, Profile, Signup } from "./pages";
+import { AuthLayout, VerifyEmail } from "./components";
+import {
+  EmailResponse,
+  Error404,
+  Home,
+  LandingPage,
+  Login,
+  Profile,
+  Signup,
+} from "./pages";
 
 const router = createBrowserRouter([
   {
@@ -51,6 +59,16 @@ const router = createBrowserRouter([
             <Signup />
           </AuthLayout>
         ),
+      },
+      {
+        path: "email",
+        element: <EmailResponse />,
+        children: [
+          {
+            path: "verify/:token",
+            element: <VerifyEmail />,
+          },
+        ],
       },
     ],
   },

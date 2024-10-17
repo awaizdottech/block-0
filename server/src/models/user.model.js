@@ -15,6 +15,11 @@ const userSchema = new Schema(
       required: true,
       unique: true,
     },
+    isEmailVerified: {
+      type: Boolean,
+      required: true,
+      default: false,
+    },
     password: {
       type: String,
       required: true,
@@ -23,7 +28,6 @@ const userSchema = new Schema(
       type: String,
       required: true,
     },
-
     refreshToken: {
       type: String,
     },
@@ -42,8 +46,6 @@ userSchema.methods.isPasswordCorrect = async function (password) {
 };
 
 userSchema.methods.generateAccessToken = function () {
-  console.log();
-
   return jwt.sign(
     {
       _id: this._id,

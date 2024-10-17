@@ -18,14 +18,19 @@ const passwordSchema = z
     }
   );
 
+export const emailSchema = z
+  .string()
+  .trim()
+  .email({ message: "Invalid email address" });
+
 export const signupSchema = z.object({
   username: usernameSchema,
-  email: z.string().trim().email({ message: "Invalid email address" }),
+  email: emailSchema,
   password: passwordSchema,
 });
 
 export const loginSchema = z.object({
-  email: z.string().trim().email({ message: "Invalid email address" }),
+  email: emailSchema,
   password: passwordSchema,
 });
 

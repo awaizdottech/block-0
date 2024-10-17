@@ -30,7 +30,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
       .json(
         new ApiError(
           500,
-          "unauthorised, something went wrong while validating access token"
+          "unauthorised, probably access token expired. try login again"
         )
       );
   }
