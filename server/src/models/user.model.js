@@ -4,35 +4,22 @@ import jwt from "jsonwebtoken";
 
 const userSchema = new Schema(
   {
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
-    email: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    isEmailVerified: {
-      type: Boolean,
-      required: true,
-      default: false,
-    },
-    password: {
-      type: String,
-      required: true,
-    },
-    avatar: {
-      type: String,
-      required: true,
-    },
-    refreshToken: {
-      type: String,
-    },
+    username: { type: String, required: true, unique: true, index: true },
+    email: { type: String, required: true, unique: true },
+    isEmailVerified: { type: Boolean, required: true, default: false },
+    password: { type: String, required: true },
+    avatar: { type: String, required: true },
+    refreshToken: { type: String },
   },
   { timestamps: true }
+);
+
+userSchema.index(
+  { createdAt: 1 },
+  {
+    expireAfterSeconds: 172800,
+    partialFilterExpression: { isEmailVerified: false },
+  }
 );
 
 userSchema.pre("save", async function (next) {

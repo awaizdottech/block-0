@@ -6,3 +6,5 @@ export const emailTypes = {
   emailUpdate: "emailUpdate",
   loginViaEmail: "loginViaEmail",
 };
+
+export const allowedEmailTypes = Object.values(emailTypes);

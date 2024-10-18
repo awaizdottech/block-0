@@ -8,13 +8,15 @@ import { deleteFromCloud, uploadOnCloud } from "../utils/cloud.js";
 import { ApiResponse, ApiError } from "../utils/standards.js";
 import jwt from "jsonwebtoken";
 import fs from "fs";
+import bcrypt from "bcrypt";
 import {
-  emailSchema,
   loginSchema,
+  sendEmailRequestSchema,
   signupSchema,
   updateSchema,
 } from "../schemas/user.schema.js";
 import { emailTypes } from "../constants.js";
+import { EmailToken } from "../models/emailToken.model.js";
 
 const options = {
   httpsOnly: true,
@@ -103,22 +105,39 @@ export const signupUser = asyncHandler(async (req, res) => {
 });
 
 export const sendEmail = asyncHandler(async (req, res) => {
-  const validatedEmail = emailSchema.safeParse(req.body);
-  if (!validatedEmail.success)
+  const validatedData = sendEmailRequestSchema.safeParse(req.body);
+  if (!validatedData.success)
     return res
       .status(400)
       .json(
         new ApiError(
           400,
           "seems like validation error",
-          validatedEmail.error.issues
+          validatedData.error.issues
         )
       );
-  const { email } = validatedEmail.data;
+  const { email, userId, emailType } = validatedData.data;
 
-  jwt.sign({ email }, process.env.EMAIL_TOKEN_SECRET, {
+  const payload = { emailType };
+  if (userId) payload.userId = userId;
+  if (email) payload.email = email;
+
+  const emailToken = jwt.sign(payload, process.env.EMAIL_TOKEN_SECRET, {
     expiresIn: process.env.EMAIL_TOKEN_EXPIRY,
   });
+  const hashedEmailToken = await bcrypt.hash(emailToken, 10);
+
+  try {
+    let query;
+    if (userId) query = { userId };
+    else if (email) query = { email };
+
+    const existingEmailToken = await EmailToken.findOne(query);
+  } catch (error) {
+    return res
+      .status(400)
+      .json(new ApiError(500, "something went wrong while saving token"));
+  }
 
   try {
     const response = await mailSender({
