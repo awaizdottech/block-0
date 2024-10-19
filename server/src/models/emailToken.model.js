@@ -7,7 +7,6 @@ const tokenSchema = new Schema(
       ref: "User",
       unique: true,
     },
-    email: { type: String, unique: true },
     hashedEmailToken: { type: String, required: true },
     expiresAt: { type: Date, required: true },
   },

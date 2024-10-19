@@ -87,8 +87,8 @@ export async function mailSender({ emailType, token, recieverEmail }) {
       subject: emailSubjects[emailType] || "Unknown email type",
       html: emailHtmlContent(),
     };
-
-    return await transporter.sendMail(mailOptions).messageId;
+    const response = await transporter.sendMail(mailOptions);
+    return response.messageId;
   } catch (error) {
     console.error(`Failed to send email to ${recieverEmail}:`, error);
     throw new ApiError(500, "Failed to send email");

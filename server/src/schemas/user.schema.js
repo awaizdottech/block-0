@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { allowedEmailTypes } from "../constants";
+import { allowedEmailTypes } from "../constants.js";
 
 export const usernameSchema = z
   .string()
@@ -35,23 +35,18 @@ export const loginSchema = z.object({
   password: passwordSchema,
 });
 
-export const sendEmailRequestSchema = z
-  .object({
-    email: emailSchema.optional(),
-    userId: z
-      .string()
-      .trim()
-      .regex(/^[a-f\d]{24}$/i, { message: "Invalid user id" })
-      .optional(),
-    emailType: z.string().refine((val) => allowedEmailTypes.includes(val), {
-      message:
-        "emailType is required & must be one of the allowed email types: emailVerification, forgotPassword, emailUpdate, loginViaEmail",
-    }),
-  })
-  .refine((data) => data.email || data.userId, {
-    message: "Either email or userId must be provided",
-    path: ["email", "userId"],
-  });
+export const sendEmailRequestSchema = z.object({
+  email: emailSchema,
+  userId: z
+    .string()
+    .trim()
+    .regex(/^[a-f\d]{24}$/i, { message: "Invalid user id" })
+    .optional(),
+  emailType: z.string().refine((val) => allowedEmailTypes.includes(val), {
+    message:
+      "emailType is required & must be one of the allowed email types: emailVerification, forgotPassword, emailUpdate, loginViaEmail",
+  }),
+});
 
 export const updateSchema = z
   .object({

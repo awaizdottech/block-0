@@ -15,7 +15,6 @@ import {
   signupSchema,
   updateSchema,
 } from "../schemas/user.schema.js";
-import { emailTypes } from "../constants.js";
 import { EmailToken } from "../models/emailToken.model.js";
 
 const options = {
@@ -116,24 +115,49 @@ export const sendEmail = asyncHandler(async (req, res) => {
           validatedData.error.issues
         )
       );
-  const { email, userId, emailType } = validatedData.data;
+  let { email, userId, emailType } = validatedData.data;
 
-  const payload = { emailType };
-  if (userId) payload.userId = userId;
-  if (email) payload.email = email;
+  if (!userId) {
+    try {
+      userId = await User.findOne({ email }).select("_id");
+      if (!userId)
+        return res
+          .status(400)
+          .json(new ApiError(500, "user with given email not found"));
+    } catch (error) {
+      console.error(error);
 
-  const emailToken = jwt.sign(payload, process.env.EMAIL_TOKEN_SECRET, {
-    expiresIn: process.env.EMAIL_TOKEN_EXPIRY,
-  });
+      return res
+        .status(400)
+        .json(
+          new ApiError(500, "something went wrong while trying to find user")
+        );
+    }
+  }
+
+  const emailToken = jwt.sign(
+    { userId, emailType },
+    process.env.EMAIL_TOKEN_SECRET,
+    {
+      expiresIn: process.env.EMAIL_TOKEN_EXPIRY,
+    }
+  );
   const hashedEmailToken = await bcrypt.hash(emailToken, 10);
+  const base64EncodedEmailToken = Buffer.from(emailToken).toString("base64");
 
   try {
-    let query;
-    if (userId) query = { userId };
-    else if (email) query = { email };
-
-    const existingEmailToken = await EmailToken.findOne(query);
+    await EmailToken.findOneAndUpdate(
+      { userId },
+      {
+        hashedEmailToken,
+        expiresAt:
+          Date.now() + parseInt(process.env.DB_EMAIL_TOKEN_EXPIRY_IN_MS),
+      },
+      { upsert: true }
+    );
   } catch (error) {
+    console.error(error);
+
     return res
       .status(400)
       .json(new ApiError(500, "something went wrong while saving token"));
@@ -141,9 +165,9 @@ export const sendEmail = asyncHandler(async (req, res) => {
 
   try {
     const response = await mailSender({
-      emailType: emailTypes.emailVerification,
-      token: "nice",
-      recieverEmail: "awaiz29249@gmail.com",
+      emailType: emailType,
+      token: base64EncodedEmailToken,
+      recieverEmail: email,
     });
     return res
       .status(200)
@@ -152,7 +176,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
     if (error instanceof ApiError) return res.status(400).json(error);
     return res
       .status(400)
-      .json(new ApiError(500, "something went wrong while sending email"));
+      .json(new ApiError(500, {}, "something went wrong while sending email"));
   }
 });
 
