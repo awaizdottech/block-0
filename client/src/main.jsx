@@ -1,31 +1,32 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import App from "./App.jsx";
-import "./index.css";
-import { Provider } from "react-redux";
-import { store } from "./store/store.js";
-import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom";
-import { AuthLayout, VerifyEmail } from "./components";
+import { StrictMode } from "react"
+import { createRoot } from "react-dom/client"
+import App from "./App.jsx"
+import "./index.css"
+import { Provider } from "react-redux"
+import { store } from "./store/store.js"
+import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom"
+import { AuthLayout } from "./components"
 import {
   EmailResponse,
   Error404,
   Home,
   LandingPage,
   Login,
+  LoginViaEmail,
   Profile,
+  ResetPassword,
   Signup,
-} from "./pages";
+  VerifyEmail,
+  VerifyEmailUpdate,
+} from "./pages"
 
 const router = createBrowserRouter([
   {
-    path: "/",
+    path: "",
     element: <App />,
     errorElement: <Error404 />,
     children: [
-      {
-        path: "",
-        element: <LandingPage />,
-      },
+      { path: "", element: <LandingPage /> },
       {
         path: "u",
         element: (
@@ -34,14 +35,8 @@ const router = createBrowserRouter([
           </AuthLayout>
         ),
         children: [
-          {
-            path: "",
-            element: <Home />,
-          },
-          {
-            path: "profile",
-            element: <Profile />,
-          },
+          { path: "", element: <Home /> },
+          { path: "profile", element: <Profile /> },
         ],
       },
       {
@@ -64,15 +59,18 @@ const router = createBrowserRouter([
         path: "email",
         element: <EmailResponse />,
         children: [
+          { path: "verify/:token", element: <VerifyEmail /> },
+          { path: "reset-password/:token", element: <ResetPassword /> },
+          { path: "login/:token", element: <LoginViaEmail /> },
           {
-            path: "verify/:token",
-            element: <VerifyEmail />,
+            path: "verify-update/:token",
+            element: <VerifyEmailUpdate />,
           },
         ],
       },
     ],
   },
-]);
+])
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -80,4 +78,4 @@ createRoot(document.getElementById("root")).render(
       <RouterProvider router={router} />
     </Provider>
   </StrictMode>
-);
+)

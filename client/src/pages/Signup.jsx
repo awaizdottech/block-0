@@ -1,3 +1,10 @@
+import { useEffect, useState } from "react"
+
 export default function Signup() {
-  return <section>Signup</section>;
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {}, [])
+
+  return loading ? <p>Loading...</p> : <section>Signup</section>
 }

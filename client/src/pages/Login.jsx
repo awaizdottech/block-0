@@ -1,43 +1,51 @@
-import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { login as authLogin } from "../store/authSlice";
-import { Button, Input } from "../components";
-import { useDispatch } from "react-redux";
-import { useForm } from "react-hook-form";
+import { useEffect, useState } from "react"
+import { Link, useNavigate } from "react-router-dom"
+import { login as authLogin } from "../store/authSlice"
+import { Button, Input } from "../components"
+import { useDispatch } from "react-redux"
+import { useForm } from "react-hook-form"
 
 export default function Login() {
-  const navigate = useNavigate();
-  const dispatch = useDispatch();
-  const { register, handleSubmit } = useForm();
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
+  const { register, handleSubmit } = useForm()
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const togglePasswordVisibility = () => {
-    setShowPassword((prevShowPassword) => !prevShowPassword);
-  };
+    setShowPassword((prevShowPassword) => !prevShowPassword)
+  }
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false)
+    }, 15000)
+
+    return () => clearTimeout(timer)
+  }, [])
 
   const login = async (data) => {
-    setError(""); //errors should be gone before submitting
-    setLoading(true);
+    setError("") //errors should be gone before submitting
+    setLoading(true)
     try {
-      const session = await authService.login(data);
+      const session = await authService.login(data)
       if (session) {
-        const userData = await authService.getCurrentUser();
+        const userData = await authService.getCurrentUser()
         if (userData) {
-          dispatch(authLogin({ userData }));
+          dispatch(authLogin({ userData }))
           appwriteService.getPosts().then((posts) => {
             if (posts) {
-              dispatch(addPosts({ posts }));
+              dispatch(addPosts({ posts }))
             }
-          });
+          })
         }
-        navigate("/");
+        navigate("/")
       }
     } catch (error) {
-      setLoading(false);
-      setError(error.message);
+      setLoading(false)
+      setError(error.message)
     }
-  };
+  }
 
   return (
     <div className="flex flex-col max-md:items-stretch items-center grow justify-center">
@@ -95,5 +103,5 @@ export default function Login() {
         </Button>
       </form>
     </div>
-  );
+  )
 }

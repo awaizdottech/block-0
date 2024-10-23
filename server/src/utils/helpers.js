@@ -39,7 +39,7 @@ export async function mailSender({ emailType, token, recieverEmail }) {
   const emailHtmlContent = () => {
     const baseUrl = process.env.FRONTEND_URL;
     const courtesy =
-      "<p>The token expires in 15 mins.<br/>Do not share the link with anyone.</p>";
+      "<p>The link expires in 15 mins.<br/>Do not share the link with anyone.</p><p>This email is not monitored, please contact the support through our app or website<>";
 
     switch (emailType) {
       case emailTypes.emailVerification:
@@ -59,7 +59,7 @@ export async function mailSender({ emailType, token, recieverEmail }) {
         );
       case emailTypes.emailUpdate:
         return (
-          `<p> Please click <a href="${baseUrl}/email/verify-email-update/${token}">here</a> to confirm your updated email</p>` +
+          `<p> Please click <a href="${baseUrl}/email/verify-update/${token}">here</a> to confirm your updated email</p>` +
           courtesy
         );
       default:
@@ -87,7 +87,7 @@ export async function mailSender({ emailType, token, recieverEmail }) {
       subject: emailSubjects[emailType] || "Unknown email type",
       html: emailHtmlContent(),
     };
-    const response = await transporter.sendMail(mailOptions);
+    const response = await transporter.sendMail(mailOptions); // await is needed as stated in the docs
     return response.messageId;
   } catch (error) {
     console.error(`Failed to send email to ${recieverEmail}:`, error);
