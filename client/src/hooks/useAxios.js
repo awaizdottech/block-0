@@ -14,7 +14,6 @@ export const useAxios = (url, method = "get", body = {}, overRides = {}) => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-
   useEffect(() => {
     let isMounted = true // track mounted state to avoid setting state after unmount
 
@@ -60,7 +59,9 @@ export const useAxios = (url, method = "get", body = {}, overRides = {}) => {
     return () => {
       isMounted = false // cleanup on unmount
     }
-  }, [url, method, body, overRides])
+  }, [])
 
   return { data, loading, error }
 }
+
+// state update > bidy, overrides, >use effect

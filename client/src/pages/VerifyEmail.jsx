@@ -1,9 +1,8 @@
 import { useNavigate, useParams } from "react-router-dom"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useAxios } from "../hooks/useAxios"
 
 export default function VerifyEmail() {
-  const [shouldRender, setShouldRender] = useState(false)
   const { token } = useParams()
   const navigate = useNavigate()
   const { data, loading, error } = useAxios(`/user/verify-email/${token}`)
@@ -13,16 +12,13 @@ export default function VerifyEmail() {
       navigate("/error")
       return
     }
-    console.log("shouldRender", shouldRender)
-    console.log("data", data)
 
-    if (!loading && !error && data && !shouldRender) setShouldRender(true) // Set to true after data is successfully fetched
-  }, [token, data, loading, error, shouldRender])
+    if (!loading && !error && data) console.log("data", data)
+  }, [token, data, loading, error])
 
-  if (loading) return <div>Loading...</div>
   if (error) return <div>Error: {error.message}</div>
 
-  return !shouldRender ? (
+  return loading ? (
     <p>Sorry, something unexpected went wrong...</p>
   ) : (
     <section>
