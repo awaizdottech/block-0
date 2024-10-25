@@ -191,8 +191,8 @@ export const sendEmail = asyncHandler(async (req, res) => {
   }
 })
 
-export const VerifyEmailToken = asyncHandler(async (req, res) => {
-  console.log(req.params.token)
+export const emailAction = asyncHandler(async (req, res) => {
+  console.log(req.body)
   return res.status(200).json(new ApiResponse(200, {}, "yo"))
 })
 

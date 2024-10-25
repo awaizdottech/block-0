@@ -5,7 +5,7 @@ import {
   signupUser,
   logoutUser,
   sendEmail,
-  VerifyEmailToken,
+  emailAction,
 } from "../controllers/user.controllers.js"
 import { upload } from "../middlewares/multer.middlewares.js"
 import { verifyJWT } from "../middlewares/auth.middlewares.js"
@@ -17,7 +17,7 @@ userRouter.route("/signup").post(upload.single("avatar"), signupUser)
 userRouter.route("/login").post(loginUser)
 userRouter.route("/update-tokens").patch(updateTokens)
 userRouter.route("/send-email").post(sendEmail)
-userRouter.route("/verify-email/:token").get(VerifyEmailToken)
+userRouter.route("/email-action").post(emailAction)
 
 userRouter.use(verifyJWT)
 userRouter.route("/logout").post(logoutUser)

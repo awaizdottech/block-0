@@ -5,19 +5,21 @@ import "./index.css"
 import { Provider } from "react-redux"
 import { store } from "./store/store.js"
 import { Outlet, RouterProvider, createBrowserRouter } from "react-router-dom"
-import { AuthLayout } from "./components"
+import {
+  AuthLayout,
+  VerifyEmail,
+  ResetPassword,
+  LoginViaEmail,
+  VerifyEmailUpdate,
+} from "./components"
 import {
   EmailResponse,
   Error404,
   Home,
   LandingPage,
   Login,
-  LoginViaEmail,
   Profile,
-  ResetPassword,
   Signup,
-  VerifyEmail,
-  VerifyEmailUpdate,
 } from "./pages"
 
 const router = createBrowserRouter([
