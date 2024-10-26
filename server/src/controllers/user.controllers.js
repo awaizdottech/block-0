@@ -1,6 +1,6 @@
 import {
   asyncHandler,
-  generateTokensAndSaveRefreshTokenToDb,
+  generateAuthTokens,
   mailSender,
 } from "../utils/helpers.js"
 import { User } from "../models/user.model.js"
@@ -10,12 +10,14 @@ import jwt from "jsonwebtoken"
 import fs from "fs"
 import bcrypt from "bcrypt"
 import {
+  emailActionSchema,
   loginSchema,
   sendEmailRequestSchema,
   signupSchema,
   updateSchema,
 } from "../schemas/user.schema.js"
 import { EmailToken } from "../models/emailToken.model.js"
+import { emailTypesObject } from "../constants.js"
 
 const options = {
   httpsOnly: true,
@@ -81,8 +83,10 @@ export const signupUser = asyncHandler(async (req, res) => {
       avatar,
     })
 
-    const { accessToken, refreshToken } =
-      await generateTokensAndSaveRefreshTokenToDb(user._id)
+    const { accessToken, refreshToken } = await generateAuthTokens(user._id)
+    user.refreshToken = refreshToken
+    const savedUser = await user.save({ validateBeforeSave: false })
+
     return res
       .status(201)
       .cookie("accessToken", accessToken, {
@@ -96,7 +100,7 @@ export const signupUser = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { user, accessToken, refreshToken },
+          { savedUser, accessToken, refreshToken },
           "user registered successfully"
         )
       )
@@ -155,7 +159,6 @@ export const sendEmail = asyncHandler(async (req, res) => {
     }
   )
   const hashedEmailToken = await bcrypt.hash(emailToken, 10)
-  const base64EncodedEmailToken = Buffer.from(emailToken).toString("base64")
 
   try {
     await EmailToken.findOneAndUpdate(
@@ -177,7 +180,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
   try {
     const response = await mailSender({
       emailType: emailType,
-      token: base64EncodedEmailToken,
+      token: emailToken,
       recieverEmail: email,
     })
     return res
@@ -191,9 +194,145 @@ export const sendEmail = asyncHandler(async (req, res) => {
   }
 })
 
-export const emailAction = asyncHandler(async (req, res) => {
-  console.log(req.body)
-  return res.status(200).json(new ApiResponse(200, {}, "yo"))
+export const emailAction = asyncHandler(async (req, res, next) => {
+  console.log("email action recieved body", req.body)
+  const validatedData = emailActionSchema.safeParse(req.body)
+  if (!validatedData.success)
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          400,
+          "seems like validation error",
+          validatedData.error.issues
+        )
+      )
+  const { token, authStatus, email, password } = validatedData.data
+
+  let tokenPayload
+  try {
+    tokenPayload = jwt.verify(token, process.env.EMAIL_TOKEN_SECRET)
+    console.log("tokenPayload", tokenPayload)
+  } catch (error) {
+    console.error("tokenPayload error", typeof error == TokenExpiredError)
+    return res
+      .status(400)
+      .json(new ApiError(500, "invalid token. it probably expired"))
+  }
+
+  let dbToken
+  try {
+    dbToken = await EmailToken.findOne({
+      userId: tokenPayload?.userId,
+    }).select("hashedEmailToken")
+    console.log("dbToken", dbToken)
+    if (!dbToken)
+      return res.status(400).json(new ApiError(500, "token not found in db"))
+  } catch (error) {
+    return res
+      .status(400)
+      .json(new ApiError(401, "something went wrong while finding token in db"))
+  }
+
+  const isTokenMatching = await bcrypt.compare(token, dbToken.hashedEmailToken)
+  console.log("isTokenMatching", isTokenMatching)
+  if (!isTokenMatching)
+    return res.status(400).json(new ApiError(500, "token didnt match"))
+
+  let user
+  try {
+    user = await User.findOne({ _id: tokenPayload?.userId })
+    console.log("user", user)
+    if (!user)
+      return res
+        .status(400)
+        .json(new ApiError(500, "user with given token not found"))
+  } catch (error) {
+    return res
+      .status(400)
+      .json(new ApiError(401, "something went wrong while finding user in db"))
+  }
+
+  try {
+    let savedUser
+    switch (tokenPayload?.emailType) {
+      case emailTypesObject.emailUpdate:
+        console.log("hello from emailUpdate")
+        // send email to recieved email for verification
+        user?.email = email
+        savedUser = await user?.save({ validateBeforeSave: false })
+        req.body = {
+          email,
+          userId: savedUser?._id,
+          emailType: emailTypesObject.emailVerification,
+        }
+        next()
+        break
+      case emailTypesObject.emailVerification:
+        console.log("hello from emailVerification")
+        user?.isEmailVerified = true
+        break
+      case emailTypesObject.loginViaEmail:
+        console.log("hello from loginViaEmail")
+        // nothing to do other than sending response
+        break
+      case emailTypesObject.forgotPassword:
+        console.log("hello from forgotPassword")
+        user?.password = password
+        break
+      default:
+        console.log(
+          "default should be wtf is this email type: ",
+          tokenPayload?.emailType
+        )
+        break
+    }
+
+    let accessToken, refreshToken
+    if (!authStatus) {
+      const authTokens = await generateAuthTokens(user._id)
+      accessToken=authTokens.accessToken
+      refreshToken=authTokens.refreshToken
+      user?.refreshToken = refreshToken
+    }
+
+    savedUser = await user?.save({ validateBeforeSave: false })
+
+    if (!authStatus) {
+      return res
+        .status(200)
+        .cookie("accessToken", accessToken, {
+          ...options,
+          maxAge: eval(process.env.ACCESS_TOKEN_COOKIE_EXPIRY),
+        })
+        .cookie("refreshToken", refreshToken, {
+          ...options,
+          maxAge: eval(process.env.REFRESH_TOKEN_COOKIE_EXPIRY),
+        })
+        .json(
+          new ApiResponse(
+            200,
+            { savedUser, accessToken, refreshToken },
+            "user logged in successfully"
+          )
+        )
+    } else
+      return res
+        .status(200)
+        .json(
+          new ApiResponse(
+            200,
+            { savedUser },
+            "email action completed successfully"
+          )
+        )
+  } catch (error) {
+    console.error(error)
+
+    return res
+      .status(400)
+      .json(new ApiError(500, "something went wrong while trying to save user"))
+  }
 })
 
 export const loginUser = asyncHandler(async (req, res) => {
@@ -218,8 +357,9 @@ export const loginUser = asyncHandler(async (req, res) => {
     if (!isPasswordValid)
       return res.status(400).json(new ApiError(401, "invalid password"))
 
-    const { accessToken, refreshToken } =
-      await generateTokensAndSaveRefreshTokenToDb(user._id)
+    const { accessToken, refreshToken } = await generateAuthTokens(user._id)
+    user.refreshToken = refreshToken
+    const savedUser = await user.save({ validateBeforeSave: false })
 
     return res
       .status(200)
@@ -234,7 +374,7 @@ export const loginUser = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { user, accessToken, refreshToken },
+          { savedUser, accessToken, refreshToken },
           "user logged in successfully"
         )
       )
@@ -279,7 +419,9 @@ export const updateTokens = asyncHandler(async (req, res) => {
         )
 
     const { accessToken, refreshToken: newRefreshToken } =
-      await generateTokensAndSaveRefreshTokenToDb(user._id)
+      await generateAuthTokens(user._id)
+    user.refreshToken = newRefreshToken
+    const savedUser = await user.save({ validateBeforeSave: false })
     return res
       .status(200)
       .cookie("accessToken", accessToken, {
@@ -293,7 +435,7 @@ export const updateTokens = asyncHandler(async (req, res) => {
       .json(
         new ApiResponse(
           200,
-          { user, accessToken, refreshToken: newRefreshToken },
+          { savedUser, accessToken, refreshToken: newRefreshToken },
           "access token refreshed successfully"
         )
       )

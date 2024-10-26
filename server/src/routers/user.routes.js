@@ -17,7 +17,7 @@ userRouter.route("/signup").post(upload.single("avatar"), signupUser)
 userRouter.route("/login").post(loginUser)
 userRouter.route("/update-tokens").patch(updateTokens)
 userRouter.route("/send-email").post(sendEmail)
-userRouter.route("/email-action").post(emailAction)
+userRouter.route("/email-action").post(emailAction, sendEmail)
 
 userRouter.use(verifyJWT)
 userRouter.route("/logout").post(logoutUser)

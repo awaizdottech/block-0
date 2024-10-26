@@ -3,6 +3,8 @@ import { useForm } from "react-hook-form"
 import { useNavigate, useParams } from "react-router-dom"
 import Input from "./Input"
 import Button from "./Button"
+import { useSelector } from "react-redux"
+import { superAxios } from "../helpers/superAxios"
 
 export default function VerifyEmailUpdate() {
   const [loading, setLoading] = useState(false)
@@ -10,22 +12,28 @@ export default function VerifyEmailUpdate() {
   const { token } = useParams()
   const { register, handleSubmit } = useForm()
   const navigate = useNavigate()
+  const authStatus = useSelector(state => state.auth.status)
   let response
 
   const sendEmailAndToken = async data => {
     setLoading(true)
 
-    // response = useAxios("post", "/user/email-action", {
-    //   token,
-    //   email: data.email,
-    // })
-    // console.log(response)
+    try {
+      response = await superAxios("post", "/user/email-action", {
+        token,
+        authStatus,
+        email: data.email,
+      })
+      console.log("response from verify emai update", response)
 
-    // if (!response.loading) {
-    //   if (response.error) setError(response.error)
-    //   if (response.data) navigate("/login")
-    //   setLoading(false)
-    // }
+      if (response) {
+        setLoading(false)
+        navigate("/login")
+      }
+    } catch (error) {
+      setError(error)
+      setLoading(false)
+    }
   }
 
   return (

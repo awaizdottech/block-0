@@ -3,6 +3,8 @@ import { useNavigate, useParams } from "react-router-dom"
 import Input from "./Input"
 import Button from "./Button"
 import { useForm } from "react-hook-form"
+import { superAxios } from "../helpers/superAxios"
+import { useSelector } from "react-redux"
 
 export default function ResetPassword() {
   const { token } = useParams()
@@ -12,6 +14,7 @@ export default function ResetPassword() {
   const [showSecondPassword, setShowSecondPassword] = useState(false)
   const { register, handleSubmit } = useForm()
   const navigate = useNavigate()
+  const authStatus = useSelector(state => state.auth.status)
   let response
 
   const sendPasswordAndToken = async data => {
@@ -21,15 +24,22 @@ export default function ResetPassword() {
       setError("Passwords dont match")
       setLoading(false)
     } else {
-      // response = useAxios("post", "/user/email-action", {
-      //   token,
-      //   password: data.firstPassword,
-      // })
-      // if (!response.loading) {
-      //   if (response.error) setError(response.error)
-      //   if (response.data) navigate("/login")
-      //   setLoading(false)
-      // }
+      try {
+        response = await superAxios("post", "/user/email-action", {
+          token,
+          authStatus,
+          password: data.firstPassword,
+        })
+        console.log("response from reset password", response)
+
+        if (response) {
+          setLoading(false)
+          navigate("/login")
+        }
+      } catch (error) {
+        setError(error)
+        setLoading(false)
+      }
     }
   }
 

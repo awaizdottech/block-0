@@ -19,13 +19,11 @@ export const superAxios = async (
   console.log("axios called")
 
   try {
-    if (method !== "get" && method !== "delete") {
-      const response = await axiosInstance[method](url, body, overRides)
-      return response
-    } else {
-      const response = await axiosInstance[method](url)
-      return response
-    }
+    if (method !== "get" && method !== "delete")
+      return await axiosInstance[method](url, body, overRides, {
+        withCredentials: true,
+      })
+    else return await axiosInstance[method](url, { withCredentials: true })
   } catch (err) {
     if (err.code === "ECONNABORTED")
       console.error("Request timeout:", err.message)
@@ -42,5 +40,6 @@ export const superAxios = async (
         "Something happened in setting up the request:",
         err.message
       )
+    throw err
   }
 }
