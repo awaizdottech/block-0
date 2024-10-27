@@ -135,7 +135,10 @@ export const sendEmail = asyncHandler(async (req, res) => {
 
   if (!userId) {
     try {
-      userId = await User.findOne({ email }).select("_id")
+      const userIdObj = await User.findOne({ email }).select("_id")
+      userId = userIdObj?._id
+      // console.log("userId", userId)
+
       if (!userId)
         return res
           .status(400)
@@ -161,7 +164,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
   const hashedEmailToken = await bcrypt.hash(emailToken, 10)
 
   try {
-    await EmailToken.findOneAndUpdate(
+    const newOrUpdatedToken = await EmailToken.findOneAndUpdate(
       { userId },
       {
         hashedEmailToken,
@@ -169,6 +172,7 @@ export const sendEmail = asyncHandler(async (req, res) => {
       },
       { upsert: true }
     )
+    console.log("newOrUpdatedToken", newOrUpdatedToken)
   } catch (error) {
     console.error(error)
 
@@ -207,14 +211,13 @@ export const emailAction = asyncHandler(async (req, res, next) => {
           validatedData.error.issues
         )
       )
-  const { token, authStatus, email, password } = validatedData.data
+  const { emailToken, authStatus, email, password } = validatedData.data
 
-  let tokenPayload
+  let emailTokenPayload
   try {
-    tokenPayload = jwt.verify(token, process.env.EMAIL_TOKEN_SECRET)
-    console.log("tokenPayload", tokenPayload)
+    emailTokenPayload = jwt.verify(emailToken, process.env.EMAIL_TOKEN_SECRET)
+    // console.log("emailTokenPayload", emailTokenPayload)
   } catch (error) {
-    console.error("tokenPayload error", typeof error == TokenExpiredError)
     return res
       .status(400)
       .json(new ApiError(500, "invalid token. it probably expired"))
@@ -223,7 +226,7 @@ export const emailAction = asyncHandler(async (req, res, next) => {
   let dbToken
   try {
     dbToken = await EmailToken.findOne({
-      userId: tokenPayload?.userId,
+      userId: emailTokenPayload?.userId,
     }).select("hashedEmailToken")
     console.log("dbToken", dbToken)
     if (!dbToken)
@@ -234,15 +237,18 @@ export const emailAction = asyncHandler(async (req, res, next) => {
       .json(new ApiError(401, "something went wrong while finding token in db"))
   }
 
-  const isTokenMatching = await bcrypt.compare(token, dbToken.hashedEmailToken)
+  const isTokenMatching = await bcrypt.compare(
+    emailToken,
+    dbToken.hashedEmailToken
+  )
   console.log("isTokenMatching", isTokenMatching)
   if (!isTokenMatching)
     return res.status(400).json(new ApiError(500, "token didnt match"))
 
   let user
   try {
-    user = await User.findOne({ _id: tokenPayload?.userId })
-    console.log("user", user)
+    user = await User.findOne({ _id: emailTokenPayload?.userId })
+    // console.log("user", user)
     if (!user)
       return res
         .status(400)
@@ -255,11 +261,10 @@ export const emailAction = asyncHandler(async (req, res, next) => {
 
   try {
     let savedUser
-    switch (tokenPayload?.emailType) {
+    // console.log("hello before the switch")
+    switch (emailTokenPayload?.emailType) {
       case emailTypesObject.emailUpdate:
-        console.log("hello from emailUpdate")
-        // send email to recieved email for verification
-        user?.email = email
+        user.email = email
         savedUser = await user?.save({ validateBeforeSave: false })
         req.body = {
           email,
@@ -269,21 +274,15 @@ export const emailAction = asyncHandler(async (req, res, next) => {
         next()
         break
       case emailTypesObject.emailVerification:
-        console.log("hello from emailVerification")
-        user?.isEmailVerified = true
-        break
-      case emailTypesObject.loginViaEmail:
-        console.log("hello from loginViaEmail")
-        // nothing to do other than sending response
+        user.isEmailVerified = true
         break
       case emailTypesObject.forgotPassword:
-        console.log("hello from forgotPassword")
-        user?.password = password
+        user.password = password
         break
       default:
         console.log(
           "default should be wtf is this email type: ",
-          tokenPayload?.emailType
+          emailTokenPayload?.emailType
         )
         break
     }
@@ -291,12 +290,13 @@ export const emailAction = asyncHandler(async (req, res, next) => {
     let accessToken, refreshToken
     if (!authStatus) {
       const authTokens = await generateAuthTokens(user._id)
-      accessToken=authTokens.accessToken
-      refreshToken=authTokens.refreshToken
-      user?.refreshToken = refreshToken
+      accessToken = authTokens.accessToken
+      refreshToken = authTokens.refreshToken
+      user.refreshToken = refreshToken
     }
 
     savedUser = await user?.save({ validateBeforeSave: false })
+    // console.log("saveduser", savedUser)
 
     if (!authStatus) {
       return res

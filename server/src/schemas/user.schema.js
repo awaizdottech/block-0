@@ -49,7 +49,7 @@ export const sendEmailRequestSchema = z.object({
 })
 
 export const emailActionSchema = z.object({
-  token: z.string(),
+  emailToken: z.string(),
   authStatus: z.boolean(),
   email: emailSchema.optional(),
   password: passwordSchema.optional(),

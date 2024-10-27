@@ -9,6 +9,8 @@ export default function EmailResponse() {
   if (!token) navigate("/error")
 
   const [response, setResponse] = useState({})
+  const [error, setError] = useState(false)
+  const [loading, setLoading] = useState(true)
   const authStatus = useSelector(state => state.auth.status)
   const location = useLocation()
   const isVerifyEmailOrLoginViaEmail =
@@ -16,10 +18,22 @@ export default function EmailResponse() {
     location.pathname.includes("login/")
 
   useEffect(() => {
-    const callSuperAxios = async () =>
-      setResponse(
-        await superAxios("post", "/user/email-action", { token, authStatus })
-      )
+    const callSuperAxios = async () => {
+      try {
+        setResponse(
+          await superAxios("post", "/user/email-action", {
+            emailToken: token,
+            authStatus,
+          })
+        )
+        setLoading(false)
+      } catch (error) {
+        console.log(error.response.data.message)
+
+        setError(error)
+        setLoading(false)
+      }
+    }
 
     if (isVerifyEmailOrLoginViaEmail) callSuperAxios()
   }, [])
@@ -27,12 +41,15 @@ export default function EmailResponse() {
   return (
     <section>
       EmailResponse {token}
-      {isVerifyEmailOrLoginViaEmail && response ? (
+      <p>{error?.response?.data?.message}</p>
+      {isVerifyEmailOrLoginViaEmail && !error && response ? (
         <Outlet context={response} />
       ) : !isVerifyEmailOrLoginViaEmail ? (
         <Outlet />
-      ) : (
+      ) : loading ? (
         <p>loading...{console.log("loading in email response")}</p>
+      ) : (
+        <p>Something went wrong...</p>
       )}
     </section>
   )

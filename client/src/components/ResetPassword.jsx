@@ -26,7 +26,7 @@ export default function ResetPassword() {
     } else {
       try {
         response = await superAxios("post", "/user/email-action", {
-          token,
+          emailToken: token,
           authStatus,
           password: data.firstPassword,
         })
@@ -37,8 +37,8 @@ export default function ResetPassword() {
           navigate("/login")
         }
       } catch (error) {
-        setError(error)
         setLoading(false)
+        setError(error)
       }
     }
   }

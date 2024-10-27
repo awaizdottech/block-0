@@ -16,6 +16,13 @@ export default function VerifyEmail() {
         Tip: U can re-register anytime if u want to hop back on the bandwagon
         later ;P
       </p>
+      <p>
+        features that require email can be done one at a time as links in the
+        emails preceeding the latest one gets invalidated. In simple terms,
+        generating multiple emails then trying to complete then trying to use
+        them wont work. so, generate one email for one feature, complete that
+        task then move on to the next feature if u wish
+      </p>
     </section>
   )
 }

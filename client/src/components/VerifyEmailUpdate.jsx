@@ -20,7 +20,7 @@ export default function VerifyEmailUpdate() {
 
     try {
       response = await superAxios("post", "/user/email-action", {
-        token,
+        emailToken: token,
         authStatus,
         email: data.email,
       })
@@ -31,8 +31,8 @@ export default function VerifyEmailUpdate() {
         navigate("/login")
       }
     } catch (error) {
-      setError(error)
       setLoading(false)
+      setError(error)
     }
   }
 
