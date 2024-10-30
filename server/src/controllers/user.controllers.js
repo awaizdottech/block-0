@@ -161,13 +161,12 @@ export const sendEmail = asyncHandler(async (req, res) => {
       expiresIn: process.env.EMAIL_TOKEN_EXPIRY,
     }
   )
-  const hashedEmailToken = await bcrypt.hash(emailToken, 10)
 
   try {
     const newOrUpdatedToken = await EmailToken.findOneAndUpdate(
       { userId },
       {
-        hashedEmailToken,
+        emailToken,
         expiresAt: Date.now() + eval(process.env.DB_EMAIL_TOKEN_EXPIRY_IN_MS),
       },
       { upsert: true }
@@ -227,7 +226,7 @@ export const emailAction = asyncHandler(async (req, res, next) => {
   try {
     dbToken = await EmailToken.findOne({
       userId: emailTokenPayload?.userId,
-    }).select("hashedEmailToken")
+    }).select("emailToken")
     console.log("dbToken", dbToken)
     if (!dbToken)
       return res.status(400).json(new ApiError(500, "token not found in db"))
@@ -237,12 +236,8 @@ export const emailAction = asyncHandler(async (req, res, next) => {
       .json(new ApiError(401, "something went wrong while finding token in db"))
   }
 
-  const isTokenMatching = await bcrypt.compare(
-    emailToken,
-    dbToken.hashedEmailToken
-  )
-  console.log("isTokenMatching", isTokenMatching)
-  if (!isTokenMatching)
+  console.log("isTokenMatching", emailToken == dbToken.emailToken)
+  if (emailToken !== dbToken.emailToken)
     return res.status(400).json(new ApiError(500, "token didnt match"))
 
   let user

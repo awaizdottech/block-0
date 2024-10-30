@@ -39,7 +39,7 @@ export default function VerifyEmailUpdate() {
   return (
     <section>
       Enter new email {console.log(error)}
-      <p>{error}</p>
+      <p>{error?.response?.data?.message}</p>
       {loading && <p>Loading...</p>}
       <form onSubmit={handleSubmit(sendEmailAndToken)}>
         <Input
