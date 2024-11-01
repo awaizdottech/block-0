@@ -42,6 +42,7 @@ export const sendEmailRequestSchema = z.object({
     .trim()
     .regex(/^[a-f\d]{24}$/i, { message: "Invalid user id" })
     .optional(),
+  emailVerificationStatus: z.boolean().optional(),
   emailType: z.string().refine(val => emailTypesArray.includes(val), {
     message:
       "emailType is required & must be one of the allowed email types: emailVerification, forgotPassword, emailUpdate, loginViaEmail",

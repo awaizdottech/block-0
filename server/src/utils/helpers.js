@@ -34,7 +34,7 @@ export async function mailSender({ emailType, token, recieverEmail }) {
   const emailHtmlContent = () => {
     const baseUrl = process.env.FRONTEND_URL
     const courtesy =
-      "<p>The link expires in 15 mins.<br/>Do not share the link with anyone.</p><p>This email is not monitored, please contact the support through our app or website<>"
+      "<p>The link expires in 15 mins.<br/>Do not share the link with anyone.</p><p>This email is not monitored, please contact the support through our app or website</p>"
 
     switch (emailType) {
       case emailTypesObject.emailVerification:
@@ -54,7 +54,7 @@ export async function mailSender({ emailType, token, recieverEmail }) {
         )
       case emailTypesObject.emailUpdate:
         return (
-          `<p> Please click <a href="${baseUrl}/email/verify-update/${token}">here</a> to confirm your updated email</p>` +
+          `<p> Please click <a href="${baseUrl}/email/verify-update/${token}">here</a> to confirm your email update</p>` +
           courtesy
         )
       default:

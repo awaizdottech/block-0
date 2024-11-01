@@ -120,6 +120,8 @@ export const signupUser = asyncHandler(async (req, res) => {
 })
 
 export const sendEmail = asyncHandler(async (req, res) => {
+  console.log("received at send mail", req.body)
+
   const validatedData = sendEmailRequestSchema.safeParse(req.body)
   if (!validatedData.success)
     return res
@@ -131,12 +133,13 @@ export const sendEmail = asyncHandler(async (req, res) => {
           validatedData.error.issues
         )
       )
-  let { email, userId, emailType } = validatedData.data
+  let { email, userId, emailVerificationStatus, emailType } = validatedData.data
 
   if (!userId) {
     try {
-      const userIdObj = await User.findOne({ email }).select("_id")
-      userId = userIdObj?._id
+      const user = await User.findOne({ email }).select("_id")
+      userId = user?._id
+      emailVerificationStatus = user?.isEmailVerified
       // console.log("userId", userId)
 
       if (!userId)
@@ -153,6 +156,14 @@ export const sendEmail = asyncHandler(async (req, res) => {
         )
     }
   }
+
+  if (
+    emailType !== emailTypesObject.emailVerification &&
+    emailVerificationStatus == false
+  )
+    return res
+      .status(400)
+      .json(new ApiError(500, "unauthorised. email not verified"))
 
   const emailToken = jwt.sign(
     { userId, emailType },
@@ -215,7 +226,7 @@ export const emailAction = asyncHandler(async (req, res, next) => {
   let emailTokenPayload
   try {
     emailTokenPayload = jwt.verify(emailToken, process.env.EMAIL_TOKEN_SECRET)
-    // console.log("emailTokenPayload", emailTokenPayload)
+    console.log("emailTokenPayload", emailTokenPayload)
   } catch (error) {
     return res
       .status(400)
@@ -243,7 +254,7 @@ export const emailAction = asyncHandler(async (req, res, next) => {
   let user
   try {
     user = await User.findOne({ _id: emailTokenPayload?.userId })
-    // console.log("user", user)
+    console.log("user", user)
     if (!user)
       return res
         .status(400)
@@ -256,18 +267,19 @@ export const emailAction = asyncHandler(async (req, res, next) => {
 
   try {
     let savedUser
-    // console.log("hello before the switch")
+    console.log("hello before the switch")
     switch (emailTokenPayload?.emailType) {
       case emailTypesObject.emailUpdate:
         user.email = email
         savedUser = await user?.save({ validateBeforeSave: false })
+        console.log("savedUser?._id", savedUser?._id)
         req.body = {
           email,
-          userId: savedUser?._id,
+          userId: savedUser?._id.toString(),
           emailType: emailTypesObject.emailVerification,
         }
         next()
-        break
+        return
       case emailTypesObject.emailVerification:
         user.isEmailVerified = true
         break
@@ -291,7 +303,7 @@ export const emailAction = asyncHandler(async (req, res, next) => {
     }
 
     savedUser = await user?.save({ validateBeforeSave: false })
-    // console.log("saveduser", savedUser)
+    console.log("saveduser", savedUser)
 
     if (!authStatus) {
       return res

@@ -38,7 +38,7 @@ export default function VerifyEmailUpdate() {
 
   return (
     <section>
-      Enter new email {console.log(error)}
+      Enter new email to update{console.log(error)}
       <p>{error?.response?.data?.message}</p>
       {loading && <p>Loading...</p>}
       <form onSubmit={handleSubmit(sendEmailAndToken)}>
@@ -58,9 +58,10 @@ export default function VerifyEmailUpdate() {
         />
 
         <Button type="submit" disabled={loading}>
-          {loading ? "Loading..." : "Sign in"}
+          {loading ? "Loading..." : "Update"}
         </Button>
       </form>
+      <p>u need to verify the new email to complete the update</p>
     </section>
   )
 }

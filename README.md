@@ -7,4 +7,5 @@ implement otp feature after which user decide whether they want otp or link in e
 
 ## future implementations
 
+- otp or link choice for users with email related stuff
 - Job Queues: If you're sending out a lot of emails (e.g., for user verification and password reset), it’s common to use job queues (e.g., Bull, RabbitMQ) to manage email sending tasks in the background instead of sending them synchronously.

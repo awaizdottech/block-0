@@ -46,11 +46,11 @@ export default function ResetPassword() {
   return (
     <section>
       ResetPassword {console.log(error)}
-      <p>{error}</p>
+      <p>{error?.response?.data?.message}</p>
       {loading && <p>Loading...</p>}
       <form onSubmit={handleSubmit(sendPasswordAndToken)}>
         <Input
-          label="Password:"
+          label="New Password:"
           className="rounded-lg text-black my-3"
           type={showFirstPassword ? "text" : "password"}
           placeholder="enter your password: "
@@ -68,7 +68,7 @@ export default function ResetPassword() {
         </button>
 
         <Input
-          label="Confirm Password:"
+          label="Confirm New Password:"
           className="rounded-lg text-black my-3"
           type={showSecondPassword ? "text" : "password"}
           placeholder="enter your password: "
@@ -86,7 +86,7 @@ export default function ResetPassword() {
         </button>
 
         <Button type="submit" disabled={loading}>
-          {loading ? "Loading..." : "Sign in"}
+          {loading ? "Loading..." : "Update"}
         </Button>
       </form>
     </section>
