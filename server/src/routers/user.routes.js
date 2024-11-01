@@ -6,6 +6,8 @@ import {
   logoutUser,
   sendEmail,
   emailAction,
+  updateAccount,
+  deleteAccount,
 } from "../controllers/user.controllers.js"
 import { upload } from "../middlewares/multer.middlewares.js"
 import { verifyJWT } from "../middlewares/auth.middlewares.js"
@@ -21,7 +23,10 @@ userRouter.route("/email-action").post(emailAction, sendEmail)
 
 userRouter.use(verifyJWT)
 userRouter.route("/logout").post(logoutUser)
-userRouter.route("/account-details").patch(upload.single("avatar")).delete()
+userRouter
+  .route("/account")
+  .patch(upload.single("avatar"), updateAccount)
+  .delete(deleteAccount)
 
 userRouter.use((req, res, next) => {
   return res

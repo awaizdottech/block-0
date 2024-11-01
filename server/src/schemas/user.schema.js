@@ -58,9 +58,8 @@ export const emailActionSchema = z.object({
 
 export const updateSchema = z
   .object({
-    oldEmail: z.string().trim().email({ message: "Invalid old email address" }),
-    newEmail: z.string().trim().email({ message: "Invalid new email address" }),
     oldPassword: passwordSchema,
     newPassword: passwordSchema,
+    newUsername: usernameSchema,
   })
   .partial()

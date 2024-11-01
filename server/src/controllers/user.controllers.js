@@ -8,7 +8,6 @@ import { deleteFromCloud, uploadOnCloud } from "../utils/cloud.js"
 import { ApiResponse, ApiError } from "../utils/standards.js"
 import jwt from "jsonwebtoken"
 import fs from "fs"
-import bcrypt from "bcrypt"
 import {
   emailActionSchema,
   loginSchema,
@@ -43,11 +42,6 @@ export const signupUser = asyncHandler(async (req, res) => {
         )
       )
   const { username, email, password } = validatedData.data
-  const avatarLocalPath = req.file?.path
-
-  if (!avatarLocalPath) {
-    return res.status(400).json(new ApiError(400, "avatar file is missing"))
-  }
 
   try {
     const ExistingUser = await User.findOne({ $or: [{ username }, { email }] })
@@ -68,23 +62,29 @@ export const signupUser = asyncHandler(async (req, res) => {
       )
   }
 
+  let user
+  try {
+    user = await User.create({
+      email,
+      password,
+      username,
+    })
+  } catch (error) {
+    return res.status(400).json(new ApiError(400, "failed to create user"))
+  }
+
+  const avatarLocalPath = req.file?.path
   let avatar
   try {
-    avatar = await uploadOnCloud(avatarLocalPath, `${username}_avatar.jpg`)
+    avatar = await uploadOnCloud(avatarLocalPath, `${user._id}_avatar.jpg`)
   } catch (error) {
     return res.status(400).json(new ApiError(400, "failed to upload avatar"))
   }
 
   try {
-    const user = await User.create({
-      email,
-      password,
-      username,
-      avatar,
-    })
-
     const { accessToken, refreshToken } = await generateAuthTokens(user._id)
     user.refreshToken = refreshToken
+    if (avatar) user.avatar = avatar
     const savedUser = await user.save({ validateBeforeSave: false })
 
     return res
@@ -105,15 +105,14 @@ export const signupUser = asyncHandler(async (req, res) => {
         )
       )
   } catch (error) {
-    if (avatar) {
-      await deleteFromCloud(`${username}_avatar.jpg`)
-    }
+    if (avatar) await deleteFromCloud(`${user._id}_avatar.jpg`)
+
     return res
       .status(400)
       .json(
         new ApiError(
           500,
-          "Something went wrong while registering a user & images were deleted"
+          "Something went wrong while saving the user & images were deleted. try logging in."
         )
       )
   }
@@ -265,35 +264,62 @@ export const emailAction = asyncHandler(async (req, res, next) => {
       .json(new ApiError(401, "something went wrong while finding user in db"))
   }
 
-  try {
-    let savedUser
-    console.log("hello before the switch")
-    switch (emailTokenPayload?.emailType) {
-      case emailTypesObject.emailUpdate:
-        user.email = email
+  let savedUser
+  console.log("hello before the switch")
+  switch (emailTokenPayload?.emailType) {
+    case emailTypesObject.emailUpdate:
+      try {
+        const existingEmail = await User.findOne({ email })
+        if (existingEmail)
+          return res
+            .status(400)
+            .json(new ApiError(500, "email already exists with another user"))
+      } catch (error) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(
+              500,
+              "something went wrong while checking if email already exists with another user"
+            )
+          )
+      }
+
+      user.email = email
+
+      try {
         savedUser = await user?.save({ validateBeforeSave: false })
         console.log("savedUser?._id", savedUser?._id)
-        req.body = {
-          email,
-          userId: savedUser?._id.toString(),
-          emailType: emailTypesObject.emailVerification,
-        }
-        next()
-        return
-      case emailTypesObject.emailVerification:
-        user.isEmailVerified = true
-        break
-      case emailTypesObject.forgotPassword:
-        user.password = password
-        break
-      default:
-        console.log(
-          "default should be wtf is this email type: ",
-          emailTokenPayload?.emailType
-        )
-        break
-    }
+      } catch (error) {
+        return res
+          .status(400)
+          .json(
+            new ApiError(500, "something went wrong while trying to save user")
+          )
+      }
 
+      req.body = {
+        email,
+        userId: savedUser?._id.toString(),
+        emailType: emailTypesObject.emailVerification,
+      }
+      next()
+      return
+    case emailTypesObject.emailVerification:
+      user.isEmailVerified = true
+      break
+    case emailTypesObject.forgotPassword:
+      user.password = password
+      break
+    default:
+      console.log(
+        "default should be wtf is this email type: ",
+        emailTokenPayload?.emailType
+      )
+      break
+  }
+
+  try {
     let accessToken, refreshToken
     if (!authStatus) {
       const authTokens = await generateAuthTokens(user._id)
@@ -476,7 +502,7 @@ export const logoutUser = asyncHandler(async (req, res) => {
   }
 })
 
-export const updateAccountDetails = asyncHandler(async (req, res) => {
+export const updateAccount = asyncHandler(async (req, res) => {
   const validatedData = updateSchema.safeParse(req.body)
   if (!validatedData.success)
     return res
@@ -488,36 +514,72 @@ export const updateAccountDetails = asyncHandler(async (req, res) => {
           validatedData.error.issues
         )
       )
-  const { oldPassword, newPassword, oldEmail, newEmail } = validatedData.data
+  const { password, newPassword, newUsername } = validatedData.data
+
+  const isPasswordValid = await req.user.isPasswordCorrect(password)
+  if (!isPasswordValid)
+    return res.status(400).json(new ApiError(401, "invalid password"))
+
+  if (newPassword) req.user.password = newPassword
+  if (newUsername) {
+    try {
+      const existingUsername = await User.findOne({ username: newUsername })
+      if (existingUsername)
+        return res
+          .status(400)
+          .json(new ApiError(500, "username exists with another user"))
+    } catch (error) {
+      return res
+        .status(400)
+        .json(
+          new ApiError(
+            500,
+            "something went wrong while trying to check if username exists with another user"
+          )
+        )
+    }
+    req.user.username = newUsername
+  }
 
   const avatarLocalPath = req.file?.path
+  let avatar
   if (avatarLocalPath) {
     try {
       avatar = await uploadOnCloud(
         avatarLocalPath,
-        `${req.user.username}_avatar.jpg`
+        `${req.user._id}_avatar.jpg`
       )
     } catch (error) {
       return res.status(400).json(new ApiError(400, "failed to update avatar"))
     }
+    req.user.avatar = avatar
   }
 
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    { $set: { fullname, email } },
-    { new: true }
-  ).select("-password -refreshToken")
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "account details updated successfully"))
+  try {
+    const user = await req.user.save({ validateBeforeSave: false })
+    return res
+      .status(200)
+      .json(new ApiResponse(200, user, "account details updated successfully"))
+  } catch (error) {
+    if (avatar) {
+      await deleteFromCloud(`${req.user._id}_avatar.jpg`)
+    }
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          500,
+          "Something went wrong while saving user changes & images were deleted"
+        )
+      )
+  }
 })
 
-export const updateCurrentPassword = asyncHandler(async (req, res) => {
-  const { oldPassword, newPassword } = req.body
+export const deleteAccount = asyncHandler(async (req, res) => {
+  const { password, newPassword } = req.body
   const user = await User.findById(req.user?._id)
 
-  const isPasswordValid = await user.isPasswordCorrect(oldPassword)
+  const isPasswordValid = await user.isPasswordCorrect(password)
   if (!isPasswordValid)
     return res.status(400).json(new ApiError(401, "Old password is incorrect"))
 
@@ -527,29 +589,4 @@ export const updateCurrentPassword = asyncHandler(async (req, res) => {
   return res
     .status(200)
     .json(new ApiResponse(200, {}, "password changed successfully"))
-})
-
-export const updateUserAvatar = asyncHandler(async (req, res) => {
-  const avatarLocalPath = req.file?.path
-  if (!avatarLocalPath)
-    return res.status(400).json(new ApiError(400, "file is required"))
-
-  const avatar = await uploadOnCloud(
-    avatarLocalPath,
-    `${req.user?.username}_avatar.jpg`
-  )
-
-  if (!avatar)
-    return res
-      .status(400)
-      .json(new ApiError(500, "something went wrong while uploading avatar"))
-  const user = await User.findByIdAndUpdate(
-    req.user?._id,
-    { $set: { avatar } },
-    { new: true }
-  ).select("-password -refreshToken")
-
-  return res
-    .status(200)
-    .json(new ApiResponse(200, user, "avatar updated successfully"))
 })
