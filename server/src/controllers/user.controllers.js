@@ -11,6 +11,7 @@ import fs from "fs"
 import {
   emailActionSchema,
   loginSchema,
+  passwordSchema,
   sendEmailRequestSchema,
   signupSchema,
   updateSchema,
@@ -52,6 +53,7 @@ export const signupUser = asyncHandler(async (req, res) => {
         .json(new ApiError(409, "User with email or username already exists"))
     }
   } catch (error) {
+    // todo remove temp stored file in a way that u dont have to repeat it, as it is needed here as well as many places because whenever we are throwing error we need to first clear the recieved file in the controller
     return res
       .status(400)
       .json(
@@ -516,7 +518,7 @@ export const updateAccount = asyncHandler(async (req, res) => {
       )
   const { password, newPassword, newUsername } = validatedData.data
 
-  const isPasswordValid = await req.user.isPasswordCorrect(password)
+  const isPasswordValid = await req.user?.isPasswordCorrect(password)
   if (!isPasswordValid)
     return res.status(400).json(new ApiError(401, "invalid password"))
 
@@ -576,17 +578,42 @@ export const updateAccount = asyncHandler(async (req, res) => {
 })
 
 export const deleteAccount = asyncHandler(async (req, res) => {
-  const { password, newPassword } = req.body
-  const user = await User.findById(req.user?._id)
+  const validatedData = passwordSchema.safeParse(req.body)
+  if (!validatedData.success)
+    return res
+      .status(400)
+      .json(
+        new ApiError(
+          400,
+          "seems like validation error",
+          validatedData.error.issues
+        )
+      )
+  const { password } = validatedData.data
 
-  const isPasswordValid = await user.isPasswordCorrect(password)
+  const isPasswordValid = await req.user.isPasswordCorrect(password)
   if (!isPasswordValid)
-    return res.status(400).json(new ApiError(401, "Old password is incorrect"))
+    return res.status(400).json(new ApiError(401, "invalid password"))
 
-  user.password = newPassword
-  await user.save({ validateBeforeSave: false })
+  try {
+    req.user?.deleteOne()
+  } catch (error) {
+    return res
+      .status(400)
+      .json(new ApiError(401, "couldnt delete the user account"))
+  }
+
+  try {
+    if (req.user?.avatar) await deleteFromCloud(`${req.user._id}_avatar.jpg`)
+  } catch (error) {
+    return res
+      .status(400)
+      .json(new ApiError(401, "couldnt delete the user avatar"))
+  }
 
   return res
     .status(200)
-    .json(new ApiResponse(200, {}, "password changed successfully"))
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "user deleted successfully"))
 })

@@ -8,7 +8,7 @@ export const usernameSchema = z
   .max(20, "Username must be no more than 20 characters")
   .toLowerCase()
 
-const passwordSchema = z
+export const passwordSchema = z
   .string()
   .trim()
   .regex(
@@ -58,7 +58,7 @@ export const emailActionSchema = z.object({
 
 export const updateSchema = z
   .object({
-    oldPassword: passwordSchema,
+    password: passwordSchema,
     newPassword: passwordSchema,
     newUsername: usernameSchema,
   })

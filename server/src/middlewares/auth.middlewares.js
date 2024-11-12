@@ -16,9 +16,7 @@ export const verifyJWT = asyncHandler(async (req, res, next) => {
     if (!decodedToken)
       return res.status(400).json(new ApiError(500, "invalid access token"))
 
-    const user = await User.findById(decodedToken?._id).select(
-      "-password -refreshToken"
-    )
+    const user = await User.findById(decodedToken?._id)
     if (!user) return res.status(400).json(new ApiError(500, "user not found"))
     req.user = user
 
